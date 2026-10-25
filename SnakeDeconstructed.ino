@@ -13,23 +13,25 @@ int switch_2 = 0;
 int switch_3 = 0;
 int switch_4 = 0;
 
-// set up initial position of snake head
-int x = 15;
-int y = 8;
-int width = 8;
-int height = 8;
-int color = ST77XX_GREEN;
 
-// set current direction
-int current_direction = 0;
+enum GameState { MENU, PLAYING, GAME_OVER };
 
-// stores the time since the last move
-int previous_move_time = 0;
-int movement_interval = 300;
+
+// declare variables
+int x;
+int y;
+int width;
+int height;
+int color;
+int current_direction;
+unsigned long previous_move_time;
+int movement_interval;
+GameState current_state;
+bool is_menu_title_drawn;
+
 
 void setup() {
 // code runs once
-
   tft.initR(INITR_BLACKTAB);
   tft.setRotation(1);
   tft.fillScreen(ST77XX_BLACK);
@@ -40,18 +42,62 @@ void setup() {
   pinMode(4, INPUT);
   pinMode(5, INPUT);
 
-  tft.fillRect(x * 8, y * 8, width, height, color);
-
+  current_state = MENU;
+  is_menu_title_drawn = false;
 }
 
 void loop() {
 // loops through code
 
+  if (current_state == MENU) {
+    runMenu();
+  } else if (current_state == PLAYING) {
+    runGame();
+  }
+}
+
+
+void runMenu() {
+  if (!is_menu_title_drawn) {
+    tft.fillScreen(ST77XX_BLACK);
+    drawText("Press Any Button To Start", ST77XX_GREEN);
+    is_menu_title_drawn = true;
+    }
+
+  readButtons();
+  if (switch_1 == HIGH || switch_2 == HIGH || switch_3 == HIGH || switch_4 == HIGH) {
+    is_menu_title_drawn = false;
+    startGame();
+    current_state = PLAYING;
+  }
+}
+
+
+void startGame() {
+  //clear screen
+  tft.fillScreen(ST77XX_BLACK);
+
+  // set up initial position of snake head
+  x = 15;
+  y = 8;
+  width = 8;
+  height = 8;
+  color = ST77XX_GREEN;
+
+  // set current direction
+  current_direction = 0;
+
+  // stores the time since the last move
+  previous_move_time = 0;
+  movement_interval = 300;
+
+  tft.fillRect(x * 8, y * 8, width, height, color);
+}
+
+
+void runGame() {
   // read electric output of switches
-  switch_1 = digitalRead(5);
-  switch_2 = digitalRead(4);
-  switch_3 = digitalRead(3);
-  switch_4 = digitalRead(2);
+  readButtons();
 
   // change current_direction value if switch is pressed
   if (switch_1 == HIGH) {
@@ -65,7 +111,7 @@ void loop() {
   }
 
   // move snake dependending on the current direction
-  int current_move_time = millis();
+  unsigned long current_move_time = millis();
   if (current_move_time - previous_move_time >= movement_interval) {
     if (current_direction == 0) {
       moveLeft();
@@ -81,10 +127,7 @@ void loop() {
       previous_move_time = current_move_time;
     }
   }
-
 }
-
-
 void moveLeft() {
   if (x > 0) {
     // make current snake head black to remove from display
@@ -122,3 +165,18 @@ void moveDown() {
   }
 }
 
+
+void drawText(char *text, uint16_t color) {
+  tft.setCursor(5, 64);
+  tft.setTextColor(color);
+  tft.setTextWrap(true);
+  tft.print(text);
+}
+
+
+void readButtons() {
+  switch_1 = digitalRead(5);
+  switch_2 = digitalRead(4);
+  switch_3 = digitalRead(3);
+  switch_4 = digitalRead(2);
+}
