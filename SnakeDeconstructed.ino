@@ -27,6 +27,7 @@ const int BEGIN_LENGTH = 3;
 // declare variables
 int color;
 int current_direction;
+int previously_moved_direction;
 unsigned long previous_move_time;
 int movement_interval;
 GameState current_state;
@@ -100,13 +101,15 @@ void startGame() {
 
     // set current direction
     current_direction = LEFT;
+    previously_moved_direction = LEFT;
 
     // stores the time since the last move
     previous_move_time = millis();
     movement_interval = 300;
 
-    for (int i = 0; i < current_snake_length; i++)
+    for (int i = 0; i < current_snake_length; i++) {
         tft.fillRect(x_position[i] * BLOCK_WIDTH, y_position[i] * BLOCK_HEIGHT, BLOCK_WIDTH, BLOCK_HEIGHT, color);
+    }
 }
 
 
@@ -115,13 +118,13 @@ void runGame() {
     readButtons();
 
     // change current_direction value if switch is pressed
-    if (switch_1 == HIGH) {
+    if (switch_1 == HIGH && previously_moved_direction != DOWN) {
         current_direction = UP;
-    } else if (switch_2 == HIGH) {
+    } else if (switch_2 == HIGH && previously_moved_direction != UP) {
         current_direction = DOWN;
-    } else if (switch_3 == HIGH) {
+    } else if (switch_3 == HIGH && previously_moved_direction != RIGHT) {
         current_direction = LEFT;
-    } else if (switch_4 == HIGH) {
+    } else if (switch_4 == HIGH && previously_moved_direction != LEFT) {
         current_direction = RIGHT;
     }
 
@@ -160,7 +163,7 @@ void moveSnake() {
         tft.fillRect(x_position[current_snake_length - 1] * BLOCK_WIDTH, y_position[current_snake_length - 1] * BLOCK_HEIGHT, BLOCK_WIDTH, BLOCK_HEIGHT, ST77XX_BLACK);
 
         // Shift x and y positions down so each block takes the previous block's place
-        for (int i = 2; i > 0; i--) {
+        for (int i = current_snake_length - 1; i > 0; i--) {
             x_position[i] = x_position[i - 1];
             y_position[i] = y_position[i - 1];
         }
@@ -169,6 +172,7 @@ void moveSnake() {
         x_position[0] = new_x;
         y_position[0] = new_y;
         tft.fillRect(x_position[0] * BLOCK_WIDTH, y_position[0] * BLOCK_HEIGHT, BLOCK_WIDTH, BLOCK_HEIGHT, color);
+        previously_moved_direction = current_direction;
     }
 }
 
@@ -187,3 +191,4 @@ void readButtons() {
     switch_3 = digitalRead(3);
     switch_4 = digitalRead(2);
 }
+
