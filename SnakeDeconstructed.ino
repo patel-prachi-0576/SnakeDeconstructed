@@ -22,6 +22,7 @@ const int SCREEN_WIDTH = 20;
 const int SCREEN_HEIGHT = 16;
 const int BLOCK_WIDTH = 8;
 const int BLOCK_HEIGHT = 8;
+const int BEGIN_LENGTH = 3;
 
 // declare variables
 int color;
@@ -52,7 +53,7 @@ void setup() {
 }
 
 void loop() {
-// loops through code
+// loops through code infinitely
 
     if (current_state == MENU) {
         runMenu();
@@ -84,14 +85,17 @@ void runMenu() {
 void startGame() {
 
     // set length of snake
-    current_snake_length = 1;
+    current_snake_length = BEGIN_LENGTH;
 
     //clear screen
     tft.fillScreen(ST77XX_BLACK);
 
-    // set up initial position of snake head
-    x_position[0] = 15;
-    y_position[0] = 8;
+    // set up initial position of snake
+    for (int i = 0; i < current_snake_length; i++) {
+        x_position[i] = 15 + i;
+        y_position[i] = 8;
+    }
+
     color = ST77XX_GREEN;
 
     // set current direction
@@ -101,7 +105,8 @@ void startGame() {
     previous_move_time = millis();
     movement_interval = 300;
 
-    tft.fillRect(x_position[0] * BLOCK_WIDTH, y_position[0] * BLOCK_HEIGHT, BLOCK_WIDTH, BLOCK_HEIGHT, color);
+    for (int i = 0; i < current_snake_length; i++)
+        tft.fillRect(x_position[i] * BLOCK_WIDTH, y_position[i] * BLOCK_HEIGHT, BLOCK_WIDTH, BLOCK_HEIGHT, color);
 }
 
 
@@ -146,12 +151,21 @@ void moveSnake() {
         x_change = 1;
     }
 
+    // Calculate new x and y positions based on current direction
     new_x = x_position[0] + x_change;
     new_y = y_position[0] + y_change;
 
-    // erase the previous position and display new position of snake head
+    // Erase the previous position and display new position of snake head
     if ((new_x >= 0 && new_x <= SCREEN_WIDTH - 1) && (new_y >= 0 && new_y <= SCREEN_HEIGHT - 1)) {
-        tft.fillRect(x_position[0] * BLOCK_WIDTH, y_position[0] * BLOCK_HEIGHT, BLOCK_WIDTH, BLOCK_HEIGHT, ST77XX_BLACK);
+        tft.fillRect(x_position[current_snake_length - 1] * BLOCK_WIDTH, y_position[current_snake_length - 1] * BLOCK_HEIGHT, BLOCK_WIDTH, BLOCK_HEIGHT, ST77XX_BLACK);
+
+        // Shift x and y positions down so each block takes the previous block's place
+        for (int i = 2; i > 0; i--) {
+            x_position[i] = x_position[i - 1];
+            y_position[i] = y_position[i - 1];
+        }
+
+        // Draw new snake head position
         x_position[0] = new_x;
         y_position[0] = new_y;
         tft.fillRect(x_position[0] * BLOCK_WIDTH, y_position[0] * BLOCK_HEIGHT, BLOCK_WIDTH, BLOCK_HEIGHT, color);
