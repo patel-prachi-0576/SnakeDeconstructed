@@ -23,15 +23,19 @@ const int SCREEN_HEIGHT = 16;
 const int BLOCK_WIDTH = 8;
 const int BLOCK_HEIGHT = 8;
 const int BEGIN_LENGTH = 3;
+const int GAME_OVER_SCREEN_LOCK = 1000;
 
 // declare variables
 int color;
 int current_direction;
 int previously_moved_direction;
 unsigned long previous_move_time;
+unsigned long current_move_time;
+unsigned long screen_drawn_time;
 int movement_interval;
 GameState current_state;
 bool is_menu_title_drawn;
+bool is_game_over_drawn;
 byte x_position [SCREEN_WIDTH * SCREEN_HEIGHT] = {0};
 byte y_position [SCREEN_WIDTH * SCREEN_HEIGHT] = {0};
 int current_snake_length;
@@ -51,6 +55,7 @@ void setup() {
 
     current_state = MENU;
     is_menu_title_drawn = false;
+    is_game_over_drawn = false;
 }
 
 void loop() {
@@ -60,6 +65,8 @@ void loop() {
         runMenu();
     } else if (current_state == PLAYING) {
         runGame();
+    } else if (current_state == GAME_OVER) {
+        runGameOver();
     }
 }
 
@@ -67,7 +74,8 @@ void loop() {
 void runMenu() {
     if (!is_menu_title_drawn) {
         tft.fillScreen(ST77XX_BLACK);
-        drawText("Press Any Button To Start", ST77XX_GREEN);
+        tft.drawRect(2, 55, 156, 30, ST77XX_GREEN);
+        drawText("Press Any Button To Start", ST77XX_GREEN, 5, 64, 1);
         is_menu_title_drawn = true;
     }
 
@@ -79,6 +87,29 @@ void runMenu() {
         }
         startGame();
         current_state = PLAYING;
+    }
+}
+
+
+void runGameOver() {
+    if (!is_game_over_drawn) {
+        tft.fillRect(15, 35, 130, 25, ST77XX_BLACK);
+        tft.drawRect(15, 35, 130, 25, ST77XX_GREEN);
+        drawText("GAME OVER", ST77XX_GREEN, 25, 40, 2);
+        tft.fillRect(0, 75, 160, 20, ST77XX_BLACK);
+        tft.drawRect(0, 75, 160, 20, ST77XX_GREEN);
+        drawText("Press UP button for menu", ST77XX_GREEN, 5, 80, 1);
+        is_game_over_drawn = true;
+        screen_drawn_time = millis();
+    }
+
+    readButtons();
+    if ((switch_1 == HIGH) && (millis() - screen_drawn_time >= GAME_OVER_SCREEN_LOCK)) {
+        is_game_over_drawn = false;
+        while (switch_1 == HIGH || switch_2 == HIGH || switch_3 == HIGH || switch_4 == HIGH) {
+            readButtons();
+        }
+        current_state = MENU;
     }
 }
 
@@ -129,7 +160,7 @@ void runGame() {
     }
 
     // move snake dependending on the current direction
-    unsigned long current_move_time = millis();
+    current_move_time = millis();
     if (current_move_time - previous_move_time >= movement_interval) {
         moveSnake();
         previous_move_time = current_move_time;
@@ -173,12 +204,15 @@ void moveSnake() {
         y_position[0] = new_y;
         tft.fillRect(x_position[0] * BLOCK_WIDTH, y_position[0] * BLOCK_HEIGHT, BLOCK_WIDTH, BLOCK_HEIGHT, color);
         previously_moved_direction = current_direction;
+    } else {
+        current_state = GAME_OVER;
     }
 }
 
 
-void drawText(const char *text, uint16_t text_color) {
-    tft.setCursor(5, 64);
+void drawText(const char *text, uint16_t text_color, uint16_t x, uint16_t y, uint16_t size) {
+    tft.setCursor(x, y);
+    tft.setTextSize(size);
     tft.setTextColor(text_color);
     tft.setTextWrap(true);
     tft.print(text);
