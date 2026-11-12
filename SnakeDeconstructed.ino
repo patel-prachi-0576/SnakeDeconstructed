@@ -26,18 +26,20 @@ const int BEGIN_LENGTH = 3;
 const int GAME_OVER_SCREEN_LOCK = 1000;
 
 // declare variables
-int color;
+uint16_t snake_color;
+uint16_t food_color;
 int current_direction;
 int previously_moved_direction;
 unsigned long previous_move_time;
-unsigned long current_move_time;
 unsigned long screen_drawn_time;
 int movement_interval;
 GameState current_state;
 bool is_menu_title_drawn;
 bool is_game_over_drawn;
-byte x_position [SCREEN_WIDTH * SCREEN_HEIGHT] = {0};
-byte y_position [SCREEN_WIDTH * SCREEN_HEIGHT] = {0};
+byte x_position_snake [SCREEN_WIDTH * SCREEN_HEIGHT] = {0};
+byte y_position_snake [SCREEN_WIDTH * SCREEN_HEIGHT] = {0};
+int x_position_food;
+int y_position_food;
 int current_snake_length;
 
 
@@ -53,9 +55,13 @@ void setup() {
     pinMode(4, INPUT);
     pinMode(5, INPUT);
 
+    // set variables
     current_state = MENU;
     is_menu_title_drawn = false;
     is_game_over_drawn = false;
+
+    // Seed random
+    randomSeed(analogRead(0));
 }
 
 void loop() {
@@ -116,39 +122,43 @@ void runGameOver() {
 
 void startGame() {
 
-    // set length of snake
+    // Set length of snake
     current_snake_length = BEGIN_LENGTH;
 
     //clear screen
     tft.fillScreen(ST77XX_BLACK);
 
-    // set up initial position of snake
+    // Set up initial x and y positions of snake
     for (int i = 0; i < current_snake_length; i++) {
-        x_position[i] = 15 + i;
-        y_position[i] = 8;
+        x_position_snake[i] = 15 + i;
+        y_position_snake[i] = 8;
     }
 
-    color = ST77XX_GREEN;
-
-    // set current direction
+    // Set current direction
     current_direction = LEFT;
     previously_moved_direction = LEFT;
 
-    // stores the time since the last move
+    // Stores the time since the last move
     previous_move_time = millis();
     movement_interval = 300;
 
+    // Draw initial snake
+    snake_color = ST77XX_GREEN;
     for (int i = 0; i < current_snake_length; i++) {
-        tft.fillRect(x_position[i] * BLOCK_WIDTH, y_position[i] * BLOCK_HEIGHT, BLOCK_WIDTH, BLOCK_HEIGHT, color);
+        tft.fillRect(x_position_snake[i] * BLOCK_WIDTH, y_position_snake[i] * BLOCK_HEIGHT, BLOCK_WIDTH, BLOCK_HEIGHT, snake_color);
     }
+
+    // Draw initial placement of food
+    food_color = ST77XX_MAGENTA;
+    spawnFood();
 }
 
 
 void runGame() {
-    // read electric output of switches
+    // Read electric output of switches
     readButtons();
 
-    // change current_direction value if switch is pressed
+    // Change current_direction value if switch is pressed
     if (switch_1 == HIGH && previously_moved_direction != DOWN) {
         current_direction = UP;
     } else if (switch_2 == HIGH && previously_moved_direction != UP) {
@@ -159,8 +169,8 @@ void runGame() {
         current_direction = RIGHT;
     }
 
-    // move snake dependending on the current direction
-    current_move_time = millis();
+    // Move snake dependending on the current direction
+    unsigned long current_move_time = millis();
     if (current_move_time - previous_move_time >= movement_interval) {
         moveSnake();
         previous_move_time = current_move_time;
@@ -186,29 +196,65 @@ void moveSnake() {
     }
 
     // Calculate new x and y positions based on current direction
-    new_x = x_position[0] + x_change;
-    new_y = y_position[0] + y_change;
+    new_x = x_position_snake[0] + x_change;
+    new_y = y_position_snake[0] + y_change;
 
     // Erase the previous position and display new position of snake head
     if ((new_x >= 0 && new_x <= SCREEN_WIDTH - 1) && (new_y >= 0 && new_y <= SCREEN_HEIGHT - 1)) {
-        tft.fillRect(x_position[current_snake_length - 1] * BLOCK_WIDTH, y_position[current_snake_length - 1] * BLOCK_HEIGHT, BLOCK_WIDTH, BLOCK_HEIGHT, ST77XX_BLACK);
+
+        // Check if food is eaten
+        bool is_food_eaten = (new_x == x_position_food && new_y == y_position_food);
+        if (!is_food_eaten) {
+            // Erase tail
+            tft.fillRect(x_position_snake[current_snake_length - 1] * BLOCK_WIDTH, y_position_snake[current_snake_length - 1] * BLOCK_HEIGHT, BLOCK_WIDTH, BLOCK_HEIGHT, ST77XX_BLACK);
+        } else {
+            // Increase snake length
+            current_snake_length++;
+        }
 
         // Shift x and y positions down so each block takes the previous block's place
         for (int i = current_snake_length - 1; i > 0; i--) {
-            x_position[i] = x_position[i - 1];
-            y_position[i] = y_position[i - 1];
+            x_position_snake[i] = x_position_snake[i - 1];
+            y_position_snake[i] = y_position_snake[i - 1];
         }
 
         // Draw new snake head position
-        x_position[0] = new_x;
-        y_position[0] = new_y;
-        tft.fillRect(x_position[0] * BLOCK_WIDTH, y_position[0] * BLOCK_HEIGHT, BLOCK_WIDTH, BLOCK_HEIGHT, color);
+        x_position_snake[0] = new_x;
+        y_position_snake[0] = new_y;
+        tft.fillRect(x_position_snake[0] * BLOCK_WIDTH, y_position_snake[0] * BLOCK_HEIGHT, BLOCK_WIDTH, BLOCK_HEIGHT, snake_color);
+
+        // Draw new food if eaten previously
+        if (is_food_eaten) {
+            spawnFood();
+        }
+
+        // Set the previous direction to the just completed directional move
         previously_moved_direction = current_direction;
     } else {
         current_state = GAME_OVER;
     }
 }
 
+
+void spawnFood() {
+    bool is_food_spot_available = false;
+
+    while (!is_food_spot_available) {
+        // Set food spot availability to be true and randomly select xy positions for food
+        is_food_spot_available = true;
+        x_position_food = random(0, SCREEN_WIDTH);
+        y_position_food = random(0, SCREEN_HEIGHT);
+
+        // Check if new food placement is in same spot as snake
+        for (int i = 0; i < current_snake_length; i++) {
+            if (x_position_snake[i] == x_position_food && y_position_snake[i] == y_position_food) {
+                is_food_spot_available = false;
+            }
+        }
+    }
+
+    tft.fillRect(x_position_food * BLOCK_WIDTH, y_position_food * BLOCK_HEIGHT, BLOCK_WIDTH, BLOCK_HEIGHT, food_color);
+}
 
 void drawText(const char *text, uint16_t text_color, uint16_t x, uint16_t y, uint16_t size) {
     tft.setCursor(x, y);
